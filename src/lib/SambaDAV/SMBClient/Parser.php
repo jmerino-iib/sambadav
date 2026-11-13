@@ -154,7 +154,7 @@ class Parser
 				// This is the only status we consider
 				// acceptable; continue with next line:
 				case 'NT_STATUS_OK':
-					continue;
+					continue 2;
 
 				case 'NT_STATUS_LOGON_FAILURE':
 				case 'NT_STATUS_ACCESS_DENIED':	// TODO: this can also mean "not writable"
@@ -214,12 +214,12 @@ class Parser
 		// Create Unix timestamp from freeform date string:
 		$date = date_parse($matches[4]);
 
-		if ($date === false) {
+		if ($date === false || $date['year'] === false || $date['month'] === false || $date['day'] === false) {
 			$output['mtime'] = null;
 		}
 		else {
 			$output['mtime'] = mktime
-				( $date['hour'], $date['minute'], $date['second']
+				( (int)$date['hour'], (int)$date['minute'], (int)$date['second']
 				, $date['month'], $date['day'], $date['year']
 				) ;
 		}

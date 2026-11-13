@@ -2,9 +2,12 @@
 
 namespace SambaDAV;
 
-class AuthTest extends \PHPUnit_Framework_TestCase
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+class AuthTest extends TestCase
 {
-	public function
+	public static function
 	fillPatternProvider ()
 	{
 		return
@@ -25,9 +28,7 @@ class AuthTest extends \PHPUnit_Framework_TestCase
 		] ;
 	}
 
-	/**
-	 * @dataProvider fillPatternProvider
-	 */
+	#[DataProvider('fillPatternProvider')]
 	public function
 	testFillPattern ($user, $pattern, $expect)
 	{

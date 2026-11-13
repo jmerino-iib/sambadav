@@ -21,6 +21,15 @@ namespace SambaDAV;
 
 abstract class Cache
 {
+	// Cipher used to protect cache contents. AES-256-GCM is an authenticated
+	// mode: a cache file that was tampered with, or that was encrypted under
+	// a different key, fails to decrypt instead of yielding garbage.
+	// (The mcrypt extension, used by earlier versions, was removed in PHP 7.2.)
+	const CIPHER    = 'aes-256-gcm';
+	const IV_SIZE   = 12;	// bytes; the recommended nonce size for GCM
+	const SALT_SIZE = 16;	// bytes
+	const TAG_SIZE  = 16;	// bytes
+
 	// Write $data to cache as $key, good for $timeout seconds.
 	// Returns true/false.
 	abstract protected function write ($key, $data, $timeout);
@@ -43,11 +52,11 @@ abstract class Cache
 		// logs in with a valid username and wrong password. If the
 		// password would not contribute to the filename, we would try
 		// to open the existing cache file and get a decode error:
-		return sha1($auth->user . $auth->pass . $callableName . $uri->uriFull(), false);
+		return hash('sha256', $auth->user . $auth->pass . $callableName . $uri->uriFull());
 	}
 
 	public function
-	serialize ($data, &$raw, $iv_size, $user_key)
+	serialize ($data, &$raw, $user_key)
 	{
 		// Serialize the raw data:
 		if (($ser = serialize($data)) === false) {
@@ -58,70 +67,84 @@ abstract class Cache
 			return false;
 		}
 		// Encrypt:
-		if (($raw = $this->encrypt($com, $iv_size, $user_key)) === false) {
+		if (($raw = $this->encrypt($com, $user_key)) === false) {
 			return false;
 		}
 		return true;
 	}
 
 	public function
-	unserialize (&$data, $raw, $iv_size, $user_key)
+	unserialize (&$data, $raw, $user_key)
 	{
 		// Decode:
-		if (($dec = $this->decrypt($raw, $iv_size, $user_key)) === false) {
+		if (($dec = $this->decrypt($raw, $user_key)) === false) {
 			return false;
 		}
 		// Uncompress:
-		if (($unc = gzuncompress($dec)) === false) {
+		if (($unc = @gzuncompress($dec)) === false) {
 			return false;
 		}
-		// Unserialize to get plain data:
-		if (($data = unserialize($unc)) === false) {
+		// Unserialize to get plain data. The cache only ever holds plain
+		// arrays and scalars, so refuse to instantiate any objects:
+		if (($data = @unserialize($unc, ['allowed_classes' => false])) === false) {
 			return false;
 		}
 		return true;
 	}
 
-	public function
-	encrypt ($data, $iv_size, $user_key)
+	private function
+	deriveKey ($salt, $user_key)
 	{
-		if (($iv = mcrypt_create_iv($iv_size, MCRYPT_RAND)) === false) {
-			return false;
-		}
-		// The key is a salted hash of the user's password;
-		// this salt is not very random, but "good enough";
-		// MD5-hash it to a binary value so its length is constant and known: 16 bytes:
-		$salt = md5(uniqid('', true), true);
-		$key = sha1($salt . $user_key . 'webfolders', true) . substr($salt, 0, 4);	// 24 bytes
-
-		// Prepend the IV and the password salt to the data; both are not secret:
-		return $iv . $salt . mcrypt_encrypt(MCRYPT_RIJNDAEL_128, $key, $data, MCRYPT_MODE_CBC, $iv);
+		// The key is derived from the user's secret and a random per-file
+		// salt, so that the same secret never yields the same key twice.
+		// HKDF-SHA256 gives us a 32 byte key, as AES-256 needs:
+		return hash_hkdf('sha256', $user_key, 32, 'sambadav-cache', $salt);
 	}
 
 	public function
-	decrypt ($data, $iv_size, $user_key)
+	encrypt ($data, $user_key)
 	{
-		// Binary MD5 hash is 16 bytes long:
-		$salt_size = 16;
-
-		// Get the IV and the salt from the front of the encrypted data:
-		if (strlen($data) < $iv_size + $salt_size) {
+		if ($user_key === '' || $user_key === null) {
 			return false;
 		}
-		$iv = substr($data, 0, $iv_size);
-		$salt = substr($data, $iv_size, $salt_size);
-		$key = sha1($salt . $user_key . 'webfolders', true) . substr($salt, 0, 4);
+		$iv = random_bytes(self::IV_SIZE);
+		$salt = random_bytes(self::SALT_SIZE);
+		$key = $this->deriveKey($salt, $user_key);
+		$tag = '';
 
-		return mcrypt_decrypt(MCRYPT_RIJNDAEL_128, $key, substr($data, $iv_size + $salt_size), MCRYPT_MODE_CBC, $iv);
+		$ciphertext = openssl_encrypt($data, self::CIPHER, $key, OPENSSL_RAW_DATA, $iv, $tag, '', self::TAG_SIZE);
+
+		if ($ciphertext === false || strlen($tag) !== self::TAG_SIZE) {
+			return false;
+		}
+		// Prepend the IV, the salt and the authentication tag to the data;
+		// none of them are secret:
+		return $iv . $salt . $tag . $ciphertext;
 	}
 
 	public function
-	get ($callable, $args = array(), $auth, $uri, $timeout)
+	decrypt ($data, $user_key)
 	{
-		if (extension_loaded('mcrypt') === false) {
-			return call_user_func_array($callable, $args);
+		if ($user_key === '' || $user_key === null) {
+			return false;
 		}
-		if (($iv_size = mcrypt_get_iv_size(MCRYPT_RIJNDAEL_128, MCRYPT_MODE_CBC)) === false) {
+		$header = self::IV_SIZE + self::SALT_SIZE + self::TAG_SIZE;
+
+		if (strlen($data) < $header) {
+			return false;
+		}
+		$iv   = substr($data, 0, self::IV_SIZE);
+		$salt = substr($data, self::IV_SIZE, self::SALT_SIZE);
+		$tag  = substr($data, self::IV_SIZE + self::SALT_SIZE, self::TAG_SIZE);
+		$key  = $this->deriveKey($salt, $user_key);
+
+		return openssl_decrypt(substr($data, $header), self::CIPHER, $key, OPENSSL_RAW_DATA, $iv, $tag);
+	}
+
+	public function
+	get ($callable, $args, $auth, $uri, $timeout)
+	{
+		if (!extension_loaded('openssl') || !in_array(self::CIPHER, openssl_get_cipher_methods(), true)) {
 			return call_user_func_array($callable, $args);
 		}
 		if (is_callable($callable, false, $callableName) === false) {
@@ -134,7 +157,7 @@ abstract class Cache
 
 		// First try to get the data from the cache:
 		if ($this->read($key, $raw, $timeout)) {
-			if ($this->unserialize($data, $raw, $iv_size, $user_key)) {
+			if ($this->unserialize($data, $raw, $user_key)) {
 				return $data;
 			}
 		}
@@ -142,7 +165,7 @@ abstract class Cache
 		$data = call_user_func_array($callable, $args);
 
 		// Serialize the data, try to store it:
-		if ($this->serialize($data, $raw, $iv_size, $user_key) !== false) {
+		if ($this->serialize($data, $raw, $user_key) !== false) {
 			$this->write($key, $raw, $timeout);
 		}
 		return $data;

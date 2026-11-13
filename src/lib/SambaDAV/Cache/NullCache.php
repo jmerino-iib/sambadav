@@ -19,7 +19,7 @@
 
 namespace SambaDAV\Cache;
 
-class Null extends \SambaDAV\Cache
+class NullCache extends \SambaDAV\Cache
 {
 	// This class does nothing but throw away the cache data;
 	// it's for when the admin has turned off caching.
@@ -49,7 +49,7 @@ class Null extends \SambaDAV\Cache
 	}
 
 	public function
-	get ($callable, $args = array(), $auth, $uri, $timeout)
+	get ($callable, $args, $auth, $uri, $timeout)
 	{
 		return call_user_func_array($callable, $args);
 	}

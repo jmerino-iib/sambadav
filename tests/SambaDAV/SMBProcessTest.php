@@ -2,7 +2,9 @@
 
 namespace SambaDAV;
 
-class SMBProcessTest extends \PHPUnit_Framework_TestCase
+use PHPUnit\Framework\TestCase;
+
+class SMBProcessTest extends TestCase
 {
 	public function
 	testWriteAuth ()
@@ -17,9 +19,7 @@ class SMBProcessTest extends \PHPUnit_Framework_TestCase
 
 		$fd = fopen('php://temp', 'rw');
 
-		$proc = $this->getMock('\SambaDAV\SMBClient\Process',
-			array('getAuthFileHandle', 'closeAuthFileHandle'),
-			array($auth, null, $log));
+		$proc = $this->getMockBuilder('\SambaDAV\SMBClient\Process')->onlyMethods(['getAuthFileHandle', 'closeAuthFileHandle'])->setConstructorArgs([$auth, null, $log])->getMock();
 
 		$proc->method('getAuthFileHandle')
 		     ->willReturn($fd);
@@ -48,9 +48,7 @@ class SMBProcessTest extends \PHPUnit_Framework_TestCase
 
 		$fd = fopen('php://temp', 'rw');
 
-		$proc = $this->getMock('\SambaDAV\SMBClient\Process',
-			array('getAuthFileHandle', 'closeAuthFileHandle'),
-			array($auth, null, $log));
+		$proc = $this->getMockBuilder('\SambaDAV\SMBClient\Process')->onlyMethods(['getAuthFileHandle', 'closeAuthFileHandle'])->setConstructorArgs([$auth, null, $log])->getMock();
 
 		$proc->method('getAuthFileHandle')
 		     ->willReturn($fd);
@@ -79,9 +77,7 @@ class SMBProcessTest extends \PHPUnit_Framework_TestCase
 
 		$fd = fopen('php://temp', 'rw');
 
-		$proc = $this->getMock('\SambaDAV\SMBClient\Process',
-			array('getAuthFileHandle', 'closeAuthFileHandle'),
-			array($auth, null, $log));
+		$proc = $this->getMockBuilder('\SambaDAV\SMBClient\Process')->onlyMethods(['getAuthFileHandle', 'closeAuthFileHandle'])->setConstructorArgs([$auth, null, $log])->getMock();
 
 		$proc->method('getAuthFileHandle')
 		     ->willReturn($fd);
@@ -100,9 +96,7 @@ class SMBProcessTest extends \PHPUnit_Framework_TestCase
 		$fd = fopen('php://temp', 'rw');
 		$log = new Log\Filesystem(Log::NONE);
 
-		$proc = $this->getMock('\SambaDAV\SMBClient\Process',
-			array('getStdinHandle', 'closeStdinHandle'),
-			array(null, null, $log));
+		$proc = $this->getMockBuilder('\SambaDAV\SMBClient\Process')->onlyMethods(['getStdinHandle', 'closeStdinHandle'])->setConstructorArgs([null, null, $log])->getMock();
 
 		$proc->method('getStdinHandle')
 			->willReturn($fd);

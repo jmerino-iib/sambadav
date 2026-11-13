@@ -21,8 +21,18 @@ namespace SambaDAV;
 
 use Sabre\DAV;
 
-class Directory extends DAV\FSExt\Directory
+class Directory extends DAV\Collection implements DAV\IQuota
 {
+	public $uri;			// URI object of this resource
+
+	private $auth;
+	private $config;
+	private $cache;
+	private $log;
+	private $smb;
+	private $flags;
+	private $mtime;
+	private $parent;
 	private $entries = null;
 	private $userhome = null;
 
@@ -280,7 +290,7 @@ class Directory extends DAV\FSExt\Directory
 		}
 		// If we're a subdir, make SabreDAV query the root:
 		if ($this->uri->isGlobalRoot() || !$this->uri->isServerRoot()) {
-			return ($quota = false);
+			return ($quota = [null, null]);
 		}
 		// Get results from disk cache if available and fresh:
 		$quota = $this->cache->get(array($this->smb, 'du'), array($this->uri), $this->auth, $this->uri, 20);
@@ -292,7 +302,8 @@ class Directory extends DAV\FSExt\Directory
 			case SMB::STATUS_SMBCLIENT_ERROR: $this->exc_smbclient();
 			case SMB::STATUS_UNAUTHENTICATED: $this->exc_unauthenticated();
 		}
-		return false;
+		// Quota unknown; SabreDAV expects an array with [used, available]:
+		return ($quota = [null, null]);
 	}
 
 	public function
@@ -472,7 +483,7 @@ class Directory extends DAV\FSExt\Directory
 		// User's home share is on this server?
 		if ($this->auth->anonymous === false && $this->userhome !== null) {
 			if ($this->userhome->server() === $this->uri->server()) {
-				if ($this->userhome->isServerRoot() === null) {
+				if ($this->userhome->isServerRoot()) {
 					$entries[$this->auth->user] = true;
 				}
 				else {
@@ -503,7 +514,7 @@ class Directory extends DAV\FSExt\Directory
 	exc_notfound ($name)
 	{
 		$m = "Not found: \"$name\"";
-		$this->log->warn("EXCEPTION: $m\n");
+		$this->log->warn("EXCEPTION: %s\n", $m);
 		throw new DAV\Exception\NotFound($m);
 	}
 
@@ -511,7 +522,7 @@ class Directory extends DAV\FSExt\Directory
 	exc_unauthenticated ()
 	{
 		$m = sprintf("'%s' not authenticated for '%s'", $this->auth->user, $this->uri->uriFull());
-		$this->log->warn("EXCEPTION: $m\n");
+		$this->log->warn("EXCEPTION: %s\n", $m);
 		throw new DAV\Exception\NotAuthenticated($m);
 	}
 

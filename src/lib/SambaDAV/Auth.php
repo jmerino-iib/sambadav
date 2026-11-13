@@ -31,6 +31,10 @@ class Auth
 	private $samba_username = null;
 	private $samba_domain = null;
 
+	private $config;
+	private $log;
+	private $baseuri;
+
 	public function
 	__construct ($config, $log, $baseuri = '/')
 	{
@@ -49,9 +53,8 @@ class Auth
 			$this->anonymous = true;
 			return true;
 		}
-		$sapi = new HTTP\Sapi();
 		$response = new HTTP\Response();
-		$request = $sapi->getRequest();
+		$request = HTTP\Sapi::getRequest();
 
 		$auth = new HTTP\Auth\Basic('Web Folders', $request, $response);
 
@@ -69,7 +72,13 @@ class Auth
 				$_SERVER['REQUEST_METHOD'] = 'GET';
 			}
 		}
-		list($this->user, $this->pass) = $auth->getCredentials();
+		// getCredentials() returns null when the client sent no (or malformed)
+		// credentials, else an array of [username, password]; a header without
+		// a colon yields an array with a single element:
+		$creds = $auth->getCredentials();
+
+		$this->user = (is_array($creds) && isset($creds[0])) ? $creds[0] : null;
+		$this->pass = (is_array($creds) && isset($creds[1])) ? $creds[1] : null;
 
 		if ($this->user === false || $this->user === '') $this->user = null;
 		if ($this->pass === false || $this->pass === '') $this->pass = null;
@@ -236,26 +245,28 @@ class Auth
 		//  %u = username
 		//  %d = domain
 
-		if (($slashPos = strpos($this->user, '\\')) === false) {
-			$atPos = strpos($this->user, '@');
+		$user = (string)$this->user;
+
+		if (($slashPos = strpos($user, '\\')) === false) {
+			$atPos = strpos($user, '@');
 		}
 		else {
-			if (($atPos = strpos(substr($this->user, $slashPos), '@')) !== false) {
+			if (($atPos = strpos(substr($user, $slashPos), '@')) !== false) {
 				$atPos += $slashPos;
 			}
 		}
 		$workgroup = ($slashPos === false)
 			? ''
-			: substr($this->user, 0, $slashPos);
+			: substr($user, 0, $slashPos);
 
 		$userStart = ($slashPos === false) ? 0 : $slashPos + 1;
-		$userEnd = ($atPos === false) ? strlen($this->user) - 1 : $atPos - 1;
+		$userEnd = ($atPos === false) ? strlen($user) - 1 : $atPos - 1;
 
-		$username = substr($this->user, $userStart, $userEnd - $userStart + 1);
+		$username = substr($user, $userStart, $userEnd - $userStart + 1);
 
 		$domain = ($atPos === false)
 			? ''
-			: substr($this->user, $atPos + 1);
+			: substr($user, $atPos + 1);
 
 		$subst = array
 			( '%w' => $workgroup

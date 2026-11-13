@@ -19,13 +19,14 @@
 
 namespace SambaDAV;
 
-use Sabre\DAV,
-    Sabre\HTTP\URLUtil,
-    Sabre\HTTP\RequestInterface,
-    Sabre\HTTP\ResponseInterface;
+use Sabre\DAV;
+use Sabre\HTTP;
+use Sabre\HTTP\RequestInterface;
+use Sabre\HTTP\ResponseInterface;
 
 class BrowserPlugin extends DAV\Browser\Plugin
 {
+	private $config;
 	
 	public function
 	__construct ($config)
@@ -54,8 +55,8 @@ class BrowserPlugin extends DAV\Browser\Plugin
 	httpPOSTExtra(RequestInterface $request, ResponseInterface $response) 
 	{
 
-		$contentType = $request->getHeader('Content-Type');
-		list($contentType) = explode(';', $contentType);
+		$contentType = (string)$request->getHeader('Content-Type');
+		[$contentType] = explode(';', $contentType);
 		if ($contentType !== 'application/x-www-form-urlencoded' &&
 		$contentType !== 'multipart/form-data') {
 			return;
@@ -72,7 +73,7 @@ class BrowserPlugin extends DAV\Browser\Plugin
 			case 'del':
 				if (isset($postVars['path'])) {
 					// Using basename() because we won't allow slashes
-					list(, $Name) = \Sabre\HTTP\URLUtil::splitPath(trim($postVars['path']));
+					[, $Name] = \Sabre\Uri\split(trim($postVars['path']));
 					if(!empty($Name) && $this->config->browserplugin_enable_delete === true) {
 						$this->server->tree->delete($uri . '/' . $Name);
 					}
@@ -119,7 +120,7 @@ HTML;
 HTML;
 		$output = '';
 		if ($this->enablePost) {
-			$this->server->emit('onHTMLActionsPanel', [$node, &$output]);
+			$this->server->emit('onHTMLActionsPanel', [$node, &$output, $path]);
 		}
 		if ($output) {
 			$html .= $output;
@@ -153,8 +154,8 @@ HTML;
 
 		// If path is empty, there is no parent:
 		if ($path) {
-			list($parentUri) = URLUtil::splitPath($path);
-			$fullPath = URLUtil::encodePath($this->server->getBaseUri() . $parentUri);
+			[$parentUri] = \Sabre\Uri\split($path);
+			$fullPath = HTTP\encodePath($this->server->getBaseUri() . $parentUri);
 			$html .= <<<HTML
         <tr class="dir">
           <td><a href="$fullPath"><img src="{$this->server->getBaseUri()}dir.png" alt="Parent"/></a></td>
@@ -180,8 +181,8 @@ HTML;
 			foreach ($subNodes as $subPath => $subProps)
 			{
 				$subNode = $this->server->tree->getNodeForPath($subPath);
-				$fullPath = URLUtil::encodePath($this->server->getBaseUri() . $subPath);
-				list(, $displayPath) = URLUtil::splitPath($subPath);
+				$fullPath = HTTP\encodePath($this->server->getBaseUri() . $subPath);
+				[, $displayPath] = \Sabre\Uri\split($subPath);
 
 				$subNodes[$subPath]['subNode'] = $subNode;
 				$subNodes[$subPath]['fullPath'] = $fullPath;
@@ -199,7 +200,7 @@ HTML;
 					? $subProps['{DAV:}getlastmodified']->getTime()->format('F j, Y, H:i:s')
 					: '';
 
-				$fullPath_decoded = URLUtil::decodePath($subProps['fullPath']);
+				$fullPath_decoded = HTTP\decodePath($subProps['fullPath']);
 				$fullPath = $this->escapeHTML($subProps['fullPath']);
 
 				if (isset($subProps['{DAV:}resourcetype']) && in_array('{DAV:}collection', $subProps['{DAV:}resourcetype']->getValue())) {
@@ -216,16 +217,21 @@ HTML;
 				}
 				$html .= "        <tr $trclass>\n";
 				$html .= "          <td><a href=\"$fullPath\"><img src=\"{$this->server->getBaseUri()}$icon\" alt=\"\"/></a></td>\n";
-				$html .= "          <td><a href=\"$fullPath\">{$subProps['displayPath']}</a></td>\n";
-				$html .= "          <td>$type</td>\n";
+				$html .= "          <td><a href=\"$fullPath\">{$this->escapeHTML($subProps['displayPath'])}</a></td>\n";
+				$html .= "          <td>{$this->escapeHTML($type)}</td>\n";
 				$html .= "          <td>$size</td>\n";
 				$html .= "          <td>$lastmodified</td>\n";
 
 				if ($this->config->browserplugin_enable_delete === true) { 
 					$html .= "          <td>\n";
-					$html .= "          <form method=\"post\" enctype=\"multipart/form-data\" onsubmit=\"return confirm('Are you sure you want to delete " . $subProps['displayPath']. "');\">\n";
+					// The name ends up in a JavaScript string inside an HTML attribute:
+					$confirm = $this->escapeHTML(json_encode(
+						'Are you sure you want to delete ' . $subProps['displayPath'],
+						JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE
+					));
+					$html .= "          <form method=\"post\" enctype=\"multipart/form-data\" onsubmit=\"return confirm($confirm);\">\n";
 					$html .= "          <input name=\"sabreActionExtra\" value=\"del\" type=\"hidden\">\n";
-					$html .= "          <input name=\"path\" value=\"$fullPath_decoded\" type=\"hidden\">\n";
+					$html .= "          <input name=\"path\" value=\"{$this->escapeHTML($fullPath_decoded)}\" type=\"hidden\">\n";
 					$html .= "          <input value=\"Delete\" type=\"submit\">\n";
 					$html .= "          </form>\n";
 					$html .= "          </td>\n";
@@ -247,7 +253,7 @@ HTML;
 	}
 
 	public function
-	htmlActionsPanel (DAV\INode $node, &$output)
+	htmlActionsPanel (DAV\INode $node, &$output, $path)
 	{
 		if (!$node instanceof DAV\ICollection) {
 			return;

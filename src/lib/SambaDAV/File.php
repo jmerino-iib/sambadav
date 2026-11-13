@@ -21,8 +21,18 @@ namespace SambaDAV;
 
 use Sabre\DAV;
 
-class File extends DAV\FSExt\File
+class File extends DAV\File
 {
+	public $uri;			// URI object of this resource
+
+	private $auth;
+	private $config;
+	private $log;
+	private $smb;
+	private $flags;
+	private $size;
+	private $mtime;
+	private $parent;
 	private $etag = null;
 	private $proc = null;	// Global storage, so that this object does not go out of scope when get() returns
 
@@ -98,15 +108,6 @@ class File extends DAV\FSExt\File
 			case SMB::STATUS_UNAUTHENTICATED: $this->exc_unauthenticated();
 			case SMB::STATUS_INVALID_NAME: $this->exc_forbidden();
 		}
-	}
-
-	public function
-	putRange ($data, $offset)
-	{
-		// Sorry bro, smbclient is not that advanced:
-		// Override the inherited method from the base class:
-		$this->log->trace('EXCEPTION: putRange "'.$this->uri->uriFull()."\" not implemented\n");
-		throw new DAV\Exception\NotImplemented("PutRange() not available due to limitations of smbclient");
 	}
 
 	public function
@@ -206,7 +207,7 @@ class File extends DAV\FSExt\File
 			switch ($this->smb->setMode($this->uri, $modeflag)) {
 				case SMB::STATUS_OK:
 					$invalidate = true;
-					continue;
+					break;
 
 				case SMB::STATUS_NOTFOUND: $this->exc_notfound();
 				case SMB::STATUS_SMBCLIENT_ERROR: $this->exc_smbclient();
@@ -251,7 +252,7 @@ class File extends DAV\FSExt\File
 	{
 		// Only one type of Forbidden error right now: invalid filename or pathname
 		$m = 'Forbidden: invalid pathname or filename';
-		$this->log->warn("EXCEPTION: $m\n");
+		$this->log->warn("EXCEPTION: %s\n", $m);
 		throw new DAV\Exception\Forbidden($m);
 	}
 
@@ -259,7 +260,7 @@ class File extends DAV\FSExt\File
 	exc_notfound ()
 	{
 		$m = sprintf("Not found: '%s'", $this->uri->uriFull());
-		$this->log->warn("EXCEPTION: $m\n");
+		$this->log->warn("EXCEPTION: %s\n", $m);
 		throw new DAV\Exception\NotFound($m);
 	}
 
@@ -274,7 +275,7 @@ class File extends DAV\FSExt\File
 	exc_unauthenticated ()
 	{
 		$m = sprintf("'%s' not authenticated for '%s'", $this->auth->user, $this->uri->uriFull());
-		$this->log->warn("EXCEPTION: $m\n");
+		$this->log->warn("EXCEPTION: %s\n", $m);
 		throw new DAV\Exception\NotAuthenticated($m);
 	}
 }

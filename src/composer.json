@@ -1,9 +1,21 @@
 {
 	"name" : "1afa/sambadav",
+	"description" : "SMB-to-WebDAV bridge, running smbclient on behalf of the user",
+	"type" : "project",
+	"license" : "AGPL-3.0-or-later",
 	"require" : {
-		"sabre/dav" : "~3.0.5"
+		"php" : ">=8.2",
+		"ext-hash" : "*",
+		"ext-openssl" : "*",
+		"ext-zlib" : "*",
+		"sabre/dav" : "^4.7"
 	},
-	"license" : "agpl",
+	"require-dev" : {
+		"phpunit/phpunit" : "^10.5 || ^11.5"
+	},
+	"suggest" : {
+		"ext-ldap" : "Needed for the optional LDAP authentication check (ldap_auth)"
+	},
 	"authors" : [
 		{
 			"name" : "Richard de Vroede",
@@ -20,6 +32,10 @@
 		"psr-4" : {
 			"SambaDAV\\" : "lib/SambaDAV"
 		}
+	},
+	"config" : {
+		"optimize-autoloader" : true,
+		"sort-packages" : true
 	},
 	"minimum-stability" : "stable"
 }

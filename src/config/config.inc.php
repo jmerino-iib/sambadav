@@ -34,6 +34,11 @@ return array(
 	// see manpage for smbclient; example: '--port 6789 -O TCP_NODELAY'
 	'smbclient_extra_opts' => false,
 
+	// Locale that smbclient runs under. This must be a UTF-8 locale that is
+	// installed on the server (see `locale -a`); with any other locale,
+	// filenames containing non-ASCII characters come out mangled:
+	'smbclient_locale' => 'C.UTF-8',
+
 	// Allow anonymous logins/browsing (no username/pass):
 	'anonymous_allow' => false,
 

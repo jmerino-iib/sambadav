@@ -2,16 +2,16 @@
 
 namespace SambaDAV;
 
-class SMBTest extends \PHPUnit_Framework_TestCase
+use PHPUnit\Framework\TestCase;
+
+class SMBTest extends TestCase
 {
 	public function
 	testGetShares ()
 	{
 		$log = new Log\Filesystem(Log::NONE);
 
-		$proc = $this->getMock('\SambaDAV\SMBClient\Process',
-			array('open'),
-			array(null, null, $log));
+		$proc = $this->getMockBuilder('\SambaDAV\SMBClient\Process')->onlyMethods(['open'])->setConstructorArgs([null, null, $log])->getMock();
 
 		$smb = new SMB(null, null, $log);
 		$uri = new URI('//server/share/dir');
@@ -28,9 +28,7 @@ class SMBTest extends \PHPUnit_Framework_TestCase
 	{
 		$log = new Log\Filesystem(Log::NONE);
 
-		$proc = $this->getMock('\SambaDAV\SMBClient\Process',
-			array('open'),
-			array(null, null, $log));
+		$proc = $this->getMockBuilder('\SambaDAV\SMBClient\Process')->onlyMethods(['open'])->setConstructorArgs([null, null, $log])->getMock();
 
 		$smb = new SMB(null, null, $log);
 		$uri = new URI('//server/share/dir');
@@ -47,9 +45,7 @@ class SMBTest extends \PHPUnit_Framework_TestCase
 	{
 		$log = new Log\Filesystem(Log::NONE);
 
-		$proc = $this->getMock('\SambaDAV\SMBClient\Process',
-			array('open'),
-			array(null, null, $log));
+		$proc = $this->getMockBuilder('\SambaDAV\SMBClient\Process')->onlyMethods(['open'])->setConstructorArgs([null, null, $log])->getMock();
 
 		$smb = new SMB(null, null, $log);
 		$uri = new URI('//server/share/dir/subdir');
@@ -66,9 +62,7 @@ class SMBTest extends \PHPUnit_Framework_TestCase
 	{
 		$log = new Log\Filesystem(Log::NONE);
 
-		$proc = $this->getMock('\SambaDAV\SMBClient\Process',
-			array('open'),
-			array(null, null, $log));
+		$proc = $this->getMockBuilder('\SambaDAV\SMBClient\Process')->onlyMethods(['open'])->setConstructorArgs([null, null, $log])->getMock();
 
 		$smb = new SMB(null, null, $log);
 		$uri = new URI('//server/share/dir/subdir');
@@ -85,9 +79,7 @@ class SMBTest extends \PHPUnit_Framework_TestCase
 	{
 		$log = new Log\Filesystem(Log::NONE);
 
-		$proc = $this->getMock('\SambaDAV\SMBClient\Process',
-			array('open'),
-			array(null, null, $log));
+		$proc = $this->getMockBuilder('\SambaDAV\SMBClient\Process')->onlyMethods(['open'])->setConstructorArgs([null, null, $log])->getMock();
 
 		$smb = new SMB(null, null, $log);
 		$uri = new URI('//server/share/dir/file.txt');
@@ -104,9 +96,7 @@ class SMBTest extends \PHPUnit_Framework_TestCase
 	{
 		$log = new Log\Filesystem(Log::NONE);
 
-		$proc = $this->getMock('\SambaDAV\SMBClient\Process',
-			array('open'),
-			array(null, null, $log));
+		$proc = $this->getMockBuilder('\SambaDAV\SMBClient\Process')->onlyMethods(['open'])->setConstructorArgs([null, null, $log])->getMock();
 
 		$smb = new SMB(null, null, $log);
 		$uri = new URI('//server/share/dir/file.txt');

@@ -2,12 +2,15 @@
 
 namespace SambaDAV;
 
-class LogTest extends \PHPUnit_Framework_TestCase
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+class LogTest extends TestCase
 {
 	public function
 	testError ()
 	{
-		$log = $this->getMock('\SambaDAV\Log\Filesystem', array('commit'));
+		$log = $this->getMockBuilder('\SambaDAV\Log\Filesystem')->onlyMethods(['commit'])->getMock();
 		$log->expects($this->once())
 		    ->method('commit')
 		    ->with($this->equalTo(Log::ERROR), $this->stringContains(': error: NOOO'));
@@ -19,7 +22,7 @@ class LogTest extends \PHPUnit_Framework_TestCase
 	testThresholdDenied ()
 	{
 		// Log message is below threshold; expect no call:
-		$log = $this->getMock('\SambaDAV\Log\Filesystem', array('commit'));
+		$log = $this->getMockBuilder('\SambaDAV\Log\Filesystem')->onlyMethods(['commit'])->getMock();
 		$log->expects($this->exactly(0))
 		    ->method('commit');
 
@@ -30,7 +33,7 @@ class LogTest extends \PHPUnit_Framework_TestCase
 	testThresholdAllowed ()
 	{
 		// Log message is above threshold; expect call:
-		$log = $this->getMock('\SambaDAV\Log\Filesystem', array('commit'), array(Log::DEBUG));
+		$log = $this->getMockBuilder('\SambaDAV\Log\Filesystem')->onlyMethods(['commit'])->setConstructorArgs([Log::DEBUG])->getMock();
 		$log->expects($this->once())
 		    ->method('commit')
 		    ->with($this->equalTo(Log::DEBUG), $this->stringContains(': debug: Hello world'));
@@ -39,6 +42,30 @@ class LogTest extends \PHPUnit_Framework_TestCase
 	}
 
 	public function
+	testStrayPercentIsNotFatal ()
+	{
+		// A filename like '100% sure %s.txt' ends up in log messages; PHP 8
+		// throws on a sprintf() format with more placeholders than arguments:
+		$log = $this->getMockBuilder('\SambaDAV\Log\Filesystem')->onlyMethods(['commit'])->getMock();
+		$log->expects($this->once())
+		    ->method('commit')
+		    ->with($this->equalTo(Log::ERROR), $this->stringContains('100% sure %s.txt'));
+
+		$log->error('100% sure %s.txt');
+	}
+
+	public function
+	testFormatArguments ()
+	{
+		$log = $this->getMockBuilder('\SambaDAV\Log\Filesystem')->onlyMethods(['commit'])->getMock();
+		$log->expects($this->once())
+		    ->method('commit')
+		    ->with($this->equalTo(Log::ERROR), $this->stringContains(": error: file '100% sure.txt' failed"));
+
+		$log->error("file '%s' failed", '100% sure.txt');
+	}
+
+	public static function
 	setLevelProvider ()
 	{
 		return
@@ -55,9 +82,7 @@ class LogTest extends \PHPUnit_Framework_TestCase
 		] ;
 	}
 
-	/**
-	 * @dataProvider setLevelProvider
-	 */
+	#[DataProvider('setLevelProvider')]
 	public function
 	testSetLevel ($value, $expect)
 	{

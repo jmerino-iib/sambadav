@@ -54,12 +54,17 @@ class Process
 			, 5 => array('pipe', 'w')	// child writes to fd#5
 			) ;
 
+		// smbclient outputs filenames in utf8, also needs support in the environment
+		// (with an ASCII locale you only get the lower bytes). 'C.UTF-8' ships with
+		// every current Linux distribution; override with 'smbclient_locale':
+		$locale = (isset($this->config->smbclient_locale) && is_string($this->config->smbclient_locale))
+			? $this->config->smbclient_locale
+			: 'C.UTF-8';
+
 		$env = array
 			( 'HOME' => '/dev/null'		// Nice restrictive environment
 			, 'SHELL' => '/bin/false'
-			// smbclient outputs filenames in utf8, also needs support in the environment
-			// (with an ASCII locale you only get the lower bytes):
-			, 'LC_ALL' => 'en_US.UTF-8'
+			, 'LC_ALL' => $locale
 			) ;
 
 		$cmd = ($this->auth->anonymous)
@@ -89,7 +94,7 @@ class Process
 	getStdoutHandle ()
 	{
 		// Return the file handle corresponding to stdout:
-		return $this->fd[1];
+		return $this->fd[1] ?? null;
 	}
 
 	public function
@@ -97,14 +102,14 @@ class Process
 	{
 		// Return the file handle corresponding to the program's
 		// write pipe:
-		return $this->fd[5];
+		return $this->fd[5] ?? null;
 	}
 
 	public function
 	getStdinHandle ()
 	{
 		// Separate getter for test mocking purposes:
-		return $this->fd[0];
+		return $this->fd[0] ?? null;
 	}
 
 	public function
@@ -117,7 +122,7 @@ class Process
 	getAuthFileHandle ()
 	{
 		// Separate getter for test mocking purposes:
-		return $this->fd[3];
+		return $this->fd[3] ?? null;
 	}
 
 	public function

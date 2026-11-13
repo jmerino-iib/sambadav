@@ -90,10 +90,21 @@ abstract class Log
 		if ($level > $this->level) {
 			return;
 		}
-		$message = strftime('%Y-%m-%d %H:%M:%S: ') . $this->lnames[$level] . ': ';
+		$message = date('Y-m-d H:i:s: ') . $this->lnames[$level] . ': ';
 
-		// Treat first argument as a sprintf format string, the rest as arguments:
-		$message .= call_user_func_array('sprintf', $args);
+		// Treat first argument as a sprintf format string, the rest as arguments.
+		// PHP 8 throws a ValueError when a format has more placeholders than
+		// arguments; a stray '%' in a message (for instance from a filename)
+		// must never be able to take the request down, so log it verbatim:
+		try {
+			$message .= vsprintf((string)$args[0], array_slice($args, 1));
+		}
+		catch (\ValueError $e) {
+			$message .= implode(' ', array_map(
+				fn ($arg) => is_scalar($arg) ? (string)$arg : gettype($arg),
+				$args
+			));
+		}
 
 		return $this->commit($level, $message);
 	}

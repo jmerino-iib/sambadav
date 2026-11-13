@@ -2,9 +2,12 @@
 
 namespace SambaDAV;
 
-class URITest extends \PHPUnit_Framework_TestCase
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+class URITest extends TestCase
 {
-	public function
+	public static function
 	uriFullProvider ()
 	{
 		return
@@ -32,9 +35,7 @@ class URITest extends \PHPUnit_Framework_TestCase
 		] ;
 	}
 
-	/**
-	 * @dataProvider uriFullProvider
-	 */
+	#[DataProvider('uriFullProvider')]
 	public function
 	testUriFull ($parts, $expect)
 	{
@@ -49,7 +50,7 @@ class URITest extends \PHPUnit_Framework_TestCase
 		$this->assertEquals($expect, $uri->uriFull());
 	}
 
-	public function
+	public static function
 	uriServerShareProvider ()
 	{
 		return
@@ -65,9 +66,7 @@ class URITest extends \PHPUnit_Framework_TestCase
 		] ;
 	}
 
-	/**
-	 * @dataProvider uriServerShareProvider
-	 */
+	#[DataProvider('uriServerShareProvider')]
 	public function
 	testUriServerShare ($parts, $expect)
 	{
@@ -82,7 +81,7 @@ class URITest extends \PHPUnit_Framework_TestCase
 		$this->assertEquals($expect, $uri->uriServerShare());
 	}
 
-	public function
+	public static function
 	addPartsProvider ()
 	{
 		return
@@ -105,9 +104,7 @@ class URITest extends \PHPUnit_Framework_TestCase
 		] ;
 	}
 
-	/**
-	 * @dataProvider addPartsProvider
-	 */
+	#[DataProvider('addPartsProvider')]
 	public function
 	testAddParts ($parts, $adds, $expect)
 	{
@@ -124,7 +121,7 @@ class URITest extends \PHPUnit_Framework_TestCase
 		$this->assertEquals('//server/share/path/to/foo', $uri->uriFull());
 	}
 
-	public function
+	public static function
 	nameProvider ()
 	{
 		return
@@ -143,9 +140,7 @@ class URITest extends \PHPUnit_Framework_TestCase
 		] ;
 	}
 
-	/**
-	 * @dataProvider nameProvider
-	 */
+	#[DataProvider('nameProvider')]
 	public function
 	testName ($parts, $expect)
 	{
@@ -161,7 +156,7 @@ class URITest extends \PHPUnit_Framework_TestCase
 		$this->assertEquals('foo', $uri->name());
 	}
 
-	public function
+	public static function
 	parentDirProvider ()
 	{
 		return
@@ -177,9 +172,7 @@ class URITest extends \PHPUnit_Framework_TestCase
 		] ;
 	}
 
-	/**
-	 * @dataProvider parentDirProvider
-	 */
+	#[DataProvider('parentDirProvider')]
 	public function
 	testParentDir ($parts, $expect)
 	{

@@ -2,7 +2,9 @@
 
 namespace SambaDAV;
 
-class ConfigTest extends \PHPUnit_Framework_TestCase
+use PHPUnit\Framework\TestCase;
+
+class ConfigTest extends TestCase
 {
 	public function
 	testSet ()

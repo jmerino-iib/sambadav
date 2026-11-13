@@ -24,23 +24,22 @@ class MD5Filter extends \php_user_filter
 	private $ctx;
 
 	public function
-	onCreate ()
+	onCreate (): bool
 	{
 		$this->ctx = hash_init('md5');
 		return true;
 	}
 
 	public function
-	onClose ()
+	onClose (): void
 	{
 		// $this->params points to an instance of MD5FilterOutput,
 		// owned by caller, that caller will use to read out the hash:
 		$this->params->hash = hash_final($this->ctx);
-		return true;
 	}
 
 	public function
-	filter ($in, $out, &$consumed, $closing)
+	filter ($in, $out, &$consumed, bool $closing): int
 	{
 		while ($bucket = stream_bucket_make_writeable($in)) {
 			hash_update($this->ctx, $bucket->data);

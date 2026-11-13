@@ -2,7 +2,9 @@
 
 namespace SambaDAV;
 
-class FileTest extends \PHPUnit_Framework_TestCase
+use PHPUnit\Framework\TestCase;
+
+class FileTest extends TestCase
 {
 	public function
 	testGetName ()
@@ -18,7 +20,7 @@ class FileTest extends \PHPUnit_Framework_TestCase
 		$log = new Log\Filesystem(Log::NONE);
 
 		// Mock SMB to assert that $smb->rename is called with proper arguments:
-		$smb = $this->getMock('\SambaDAV\SMB', array('rename'), array(null, null, $log));
+		$smb = $this->getMockBuilder('\SambaDAV\SMB')->onlyMethods(['rename'])->setConstructorArgs([null, null, $log])->getMock();
 		$smb->expects($this->once())
 		    ->method('rename')
 		    ->with($uri, $this->equalTo('new.pdf'));
@@ -38,7 +40,7 @@ class FileTest extends \PHPUnit_Framework_TestCase
 
 		$data = 'Hello, brave new world.';
 
-		$smb = $this->getMock('\SambaDAV\SMB', array('put'), array(null, null, $log));
+		$smb = $this->getMockBuilder('\SambaDAV\SMB')->onlyMethods(['put'])->setConstructorArgs([null, null, $log])->getMock();
 		$smb->expects($this->once())
 		    ->method('put')
 		    ->with($uri, $data)

@@ -29,7 +29,7 @@ class Filesystem extends \SambaDAV\Log
 		$this->level = $level;
 
 		if (is_null($this->filename = $filename)) {
-			$this->filename = strftime(dirname(dirname(dirname(dirname(__FILE__)))).'/log/%Y-%m-%d.log');
+			$this->filename = dirname(__DIR__, 3).'/log/'.date('Y-m-d').'.log';
 		}
 	}
 

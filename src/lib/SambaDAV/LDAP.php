@@ -50,9 +50,19 @@ class LDAP
 	public function
 	__destruct ()
 	{
-		if (is_resource($this->conn)) {
-			ldap_close($this->conn);
+		$this->disconnect();
+	}
+
+	private function
+	disconnect ()
+	{
+		// Since PHP 8.1 the connection is an LDAP\Connection object, not a
+		// resource. Unbinding a connection twice is an error, so forget it
+		// once it's closed:
+		if ($this->conn instanceof \LDAP\Connection) {
+			ldap_unbind($this->conn);
 		}
+		$this->conn = null;
 	}
 
 	public function
@@ -61,11 +71,18 @@ class LDAP
 		if ($this->getParams() === false) {
 			return false;
 		}
-		if (($this->conn = ldap_connect($this->host, $this->port)) === false) {
+		// A host that is already an LDAP URI (ldap://, ldaps://, ldapi://) is
+		// used verbatim, as before; the port only applies to a plain hostname:
+		$uri = (strpos((string)$this->host, '://') !== false)
+			? $this->host
+			: sprintf('ldap://%s:%d', $this->host, (int)$this->port);
+
+		if (($this->conn = ldap_connect($uri)) === false) {
+			$this->conn = null;
 			return false;
 		}
 		if (ldap_set_option($this->conn, LDAP_OPT_PROTOCOL_VERSION, 3) === false) {
-			ldap_close($this->conn);
+			$this->disconnect();
 			return false;
 		}
 		if ($this->method === self::METHOD_BIND) {
@@ -88,15 +105,15 @@ class LDAP
 		}
 		if ($this->method === self::METHOD_FASTBIND) {
 			$ret = $this->verify_fastbind($user, $pass, $ldap_groups, $prop_userhome);
-			ldap_close($this->conn);
+			$this->disconnect();
 			return $ret;
 		}
 		if ($this->method === self::METHOD_BIND) {
 			$ret = $this->verify_bind($user, $pass, $ldap_groups, $prop_userhome);
-			ldap_close($this->conn);
+			$this->disconnect();
 			return $ret;
 		}
-		ldap_close($this->conn);
+		$this->disconnect();
 		return false;
 	}
 
@@ -105,9 +122,9 @@ class LDAP
 	{
 		// Suppress errors with the @ prefix because a bind error is *expected*
 		// in case of a failed login; no need to pollute the error log:
-		$searchdn = sprintf('ou=Users,%s', $this->escape($this->basedn));
+		$searchdn = sprintf('ou=Users,%s', $this->basedn);
 
-		if (@ldap_bind($this->conn, sprintf('uid=%s,%s', $this->escape($user), $searchdn), $pass) === false) {
+		if (@ldap_bind($this->conn, sprintf('uid=%s,%s', $this->escapeDN($user), $searchdn), $pass) === false) {
 			return false;
 		}
 		if ($this->groupSearch($user, $ldap_groups) === false) {
@@ -151,10 +168,10 @@ class LDAP
 			foreach ($ldap_groups as $group) {
 				$esc[] = sprintf('(&(objectclass=GROUP)(SAMACCOUNTNAME=%s))', $this->escape($group));
 			}
-			$groupfilter = sprintf('(&(|%s)(member=%s))', implode($esc), $userdn);
+			$groupfilter = sprintf('(&(|%s)(member=%s))', implode($esc), $this->escape($userdn));
 		}
 		else if (is_string($ldap_groups)) {
-			$groupfilter = sprintf('(&(&(objectclass=GROUP)(SAMACCOUNTNAME=%s))(member=%s))', $this->escape($ldap_groups), $userdn);
+			$groupfilter = sprintf('(&(&(objectclass=GROUP)(SAMACCOUNTNAME=%s))(member=%s))', $this->escape($ldap_groups), $this->escape($userdn));
 		}
 		else {
 			// No groups specified? Find userhome:
@@ -178,7 +195,7 @@ class LDAP
 		if ($this->host !== null && $this->basedn !== null) {
 			return true;
 		}
-		if (($fp = fopen(self::CONFIG_FILE, 'r')) === false) {
+		if (($fp = @fopen(self::CONFIG_FILE, 'r')) === false) {
 			return false;
 		}
 		while (($line = fgets($fp)) !== false) {
@@ -204,11 +221,11 @@ class LDAP
 	private function
 	groupSearch ($user, $groups)
 	{
-		// For Fastbind:
-		if ($groups === null) {
+		// For Fastbind; 'false' is what the config file uses for "no group check":
+		if ($groups === null || $groups === false) {
 			return true;
 		}
-		$searchdn = sprintf('ou=Groups,%s', $this->escape($this->basedn));
+		$searchdn = sprintf('ou=Groups,%s', $this->basedn);
 		$filter = sprintf('(&(memberUid=%s)(objectclass=posixGroup)%s)', $this->escape($user), $this->groupCNs($groups));
 
 		if (($result = ldap_search($this->conn, $searchdn, $filter, array('memberUid'), 1)) === false) {
@@ -257,11 +274,14 @@ class LDAP
 	private function
 	escape ($str)
 	{
-		$bad = array('\\', '*', '(', ')', chr(0));
-		$esc = array();
-		foreach ($bad as $val) {
-			$esc[] = sprintf('\\%02x', ord($val));
-		}
-		return str_replace($bad, $esc, $str);
+		// Escape a value for use inside a search filter (RFC 4515):
+		return ldap_escape((string)$str, '', LDAP_ESCAPE_FILTER);
+	}
+
+	private function
+	escapeDN ($str)
+	{
+		// Escape a value for use inside a distinguished name (RFC 4514):
+		return ldap_escape((string)$str, '', LDAP_ESCAPE_DN);
 	}
 }
