@@ -71,7 +71,7 @@ class Propflags
 	public function
 	fromWin32 ($msflags)
 	{
-		if (strlen($msflags) !== 8
+		if (!is_string($msflags) || strlen($msflags) !== 8
 		 || sscanf($msflags, '%08x', $flags) !== 1) {
 			return $this->init = false;
 		}

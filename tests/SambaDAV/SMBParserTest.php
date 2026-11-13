@@ -2,7 +2,9 @@
 
 namespace SambaDAV;
 
-class SMBParserTest extends \PHPUnit_Framework_TestCase
+use PHPUnit\Framework\TestCase;
+
+class SMBParserTest extends TestCase
 {
 	public function
 	testConnectFailed ()
@@ -11,9 +13,7 @@ class SMBParserTest extends \PHPUnit_Framework_TestCase
 		$fd = fopen('data://text/plain,' . $outp, 'r');
 		$log = new Log\Filesystem(Log::NONE);
 
-		$proc = $this->getMock('\SambaDAV\SMBClient\Process',
-			array('getStdoutHandle'),
-			array(null, null, $log));
+		$proc = $this->getMockBuilder('\SambaDAV\SMBClient\Process')->onlyMethods(['getStdoutHandle'])->setConstructorArgs([null, null, $log])->getMock();
 
 		$proc->method('getStdoutHandle')
 		     ->willReturn($fd);
@@ -51,9 +51,7 @@ EOT;
 		$fd = fopen('data://text/plain,' . $outp, 'r');
 		$log = new Log\Filesystem(Log::NONE);
 
-		$proc = $this->getMock('\SambaDAV\SMBClient\Process',
-			array('getStdoutHandle'),
-			array(null, null, $log));
+		$proc = $this->getMockBuilder('\SambaDAV\SMBClient\Process')->onlyMethods(['getStdoutHandle'])->setConstructorArgs([null, null, $log])->getMock();
 
 		$proc->method('getStdoutHandle')
 		     ->willReturn($fd);
@@ -82,9 +80,7 @@ EOT;
 		$fd = fopen('data://text/plain,' . $outp, 'r');
 		$log = new Log\Filesystem(Log::NONE);
 
-		$proc = $this->getMock('\SambaDAV\SMBClient\Process',
-			array('getStdoutHandle'),
-			array(null, null, $log));
+		$proc = $this->getMockBuilder('\SambaDAV\SMBClient\Process')->onlyMethods(['getStdoutHandle'])->setConstructorArgs([null, null, $log])->getMock();
 
 		$proc->method('getStdoutHandle')
 		     ->willReturn($fd);
@@ -105,14 +101,73 @@ EOT;
 		$fd = fopen('data://text/plain,' . $outp, 'r');
 		$log = new Log\Filesystem(Log::NONE);
 
-		$proc = $this->getMock('\SambaDAV\SMBClient\Process',
-			array('getStdoutHandle'),
-			array(null, null, $log));
+		$proc = $this->getMockBuilder('\SambaDAV\SMBClient\Process')->onlyMethods(['getStdoutHandle'])->setConstructorArgs([null, null, $log])->getMock();
 
 		$proc->method('getStdoutHandle')
 		     ->willReturn($fd);
 
 		$parser = new SMBClient\Parser($proc);
 		$this->assertEquals(SMB::STATUS_UNAUTHENTICATED, $parser->getDiskUsage());
+	}
+
+	private function
+	parserFor ($outp)
+	{
+		$fd = fopen('php://memory', 'r+');
+		fwrite($fd, $outp);
+		rewind($fd);
+
+		$log = new Log\Filesystem(Log::NONE);
+		$proc = $this->getMockBuilder('\SambaDAV\SMBClient\Process')->onlyMethods(['getStdoutHandle'])->setConstructorArgs([null, null, $log])->getMock();
+		$proc->method('getStdoutHandle')->willReturn($fd);
+
+		return new SMBClient\Parser($proc);
+	}
+
+	private function
+	lsLine ($name, $flags, $size, $time)
+	{
+		// Same printf format that smbclient uses, see Parser::parseFileLine():
+		return sprintf("  %-30s%7.7s %8.0f  %s\n", $name, $flags, $size, $time);
+	}
+
+	public function
+	testGetListing ()
+	{
+		$outp = $this->lsLine('file.txt', 'A', 12, 'Mon Mar  8 13:00:07 2010')
+		      . $this->lsLine('a dir', 'D', 0, 'Tue Mar  9 08:30:00 2010');
+
+		$this->assertEquals(
+			[ [ 'name' => 'file.txt', 'flags' => 'A', 'size' => 12, 'mtime' => mktime(13, 0, 7, 3, 8, 2010) ]
+			, [ 'name' => 'a dir',    'flags' => 'D', 'size' => 0,  'mtime' => mktime(8, 30, 0, 3, 9, 2010) ]
+			], $this->parserFor($outp)->getListing());
+	}
+
+	public function
+	testGetListingSkipsOkStatusLine ()
+	{
+		// An NT_STATUS_OK on one of the first two lines is acceptable;
+		// parsing must carry on with the next line:
+		$outp = "NT_STATUS_OK\n" . $this->lsLine('file.txt', 'A', 12, 'Mon Mar  8 13:00:07 2010');
+
+		$listing = $this->parserFor($outp)->getListing();
+		$this->assertCount(1, $listing);
+		$this->assertEquals('file.txt', $listing[0]['name']);
+	}
+
+	public function
+	testGetListingUnparseableDate ()
+	{
+		$listing = $this->parserFor($this->lsLine('file.txt', 'A', 12, 'not a date'))->getListing();
+
+		$this->assertCount(1, $listing);
+		$this->assertNull($listing[0]['mtime']);
+	}
+
+	public function
+	testGetListingNotFound ()
+	{
+		$outp = "NT_STATUS_OBJECT_PATH_NOT_FOUND listing \\nonexistent\\\n";
+		$this->assertEquals(SMB::STATUS_NOTFOUND, $this->parserFor($outp)->getListing());
 	}
 }

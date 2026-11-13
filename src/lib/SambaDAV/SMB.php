@@ -112,9 +112,9 @@ class SMB
 		if ($proc->open($args, $scmd) === false) {
 			return self::STATUS_SMBCLIENT_ERROR;
 		}
-		if (is_resource($proc->fd[1])) fclose($proc->fd[1]);
-		if (is_resource($proc->fd[2])) fclose($proc->fd[2]);
-		if (is_resource($proc->fd[4])) fclose($proc->fd[4]);
+		foreach ([1, 2, 4] as $n) {
+			if (isset($proc->fd[$n]) && is_resource($proc->fd[$n])) fclose($proc->fd[$n]);
+		}
 		return self::STATUS_OK;
 	}
 
@@ -154,6 +154,7 @@ class SMB
 			$md5 = $filterOutput->hash;
 		}
 		else {
+			$data = (string)$data;
 			if (fwrite($proc->fd[4], $data) === false) {
 				return self::STATUS_SMBCLIENT_ERROR;
 			}

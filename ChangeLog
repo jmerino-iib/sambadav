@@ -1,3 +1,22 @@
+* Mon Nov 02 2026 v0.7.0 (PHP 8 / SabreDAV 4 port)
+- Require PHP >= 8.2 and SabreDAV ^4.7 (was SabreDAV 3.0.x on PHP 5);
+- Cache: replace the removed mcrypt extension by OpenSSL AES-256-GCM (authenticated)
+  with an HKDF-derived key; cache entries are never unserialized into objects.
+  Existing cache files are simply ignored and rebuilt (the cache lives in /dev/shm);
+- Rename class Cache\Null to Cache\NullCache ('Null' is a reserved word since PHP 7);
+- Directory and File now extend DAV\Collection and DAV\File (the FSExt classes
+  assume a local filesystem); getQuotaInfo() returns [used, available] as SabreDAV 4 expects;
+- Browser plugin: use Sabre\Uri / Sabre\HTTP functions instead of the removed URLUtil;
+  HTML-escape file names, types and the delete-confirmation text;
+- LDAP: use LDAP\Connection objects (PHP 8.1), ldap_connect() with a URI (PHP 8.3),
+  ldap_escape() for filters and DNs; ldap_groups = false means "no group check";
+- Log: no strftime(); a stray '%' in a message can no longer throw a ValueError;
+- smbclient runs with LC_ALL set by the new 'smbclient_locale' option (default C.UTF-8);
+- Declare all class properties (dynamic properties are deprecated in PHP 8.2);
+- Lock file path is now absolute; Parser: 'continue 2' in switch, no bogus mtime on bad dates;
+- Tests: ported to PHPUnit 10/11, new tests for the cache and the log;
+- Known gap: not yet verified against a live Samba server or the real PHPUnit.
+
 * Fri Nov 20 2015 Richard de Vroede <richard@1afa.com> v0.6.0
 - Composer: updated authors;
 - Composer: set autoload to PSR-4 as PSR-0 is deprecated;

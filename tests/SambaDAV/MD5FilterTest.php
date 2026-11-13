@@ -2,7 +2,9 @@
 
 namespace SambaDAV;
 
-class MD5FilterTest extends \PHPUnit_Framework_TestCase
+use PHPUnit\Framework\TestCase;
+
+class MD5FilterTest extends TestCase
 {
 	public function
 	test_A ()

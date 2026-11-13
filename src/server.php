@@ -39,7 +39,8 @@ if ($config->enabled !== true) {
 
 // The base URI is the SambaDAV root dir location on the server.
 // Check if the request was rewritten:
-$baseuri = (strpos($_SERVER['REQUEST_URI'], $config->server_basedir) === 0) ? $config->server_basedir : '/';
+$basedir = (string)$config->server_basedir;
+$baseuri = ($basedir !== '' && strpos($_SERVER['REQUEST_URI'], $basedir) === 0) ? $basedir : '/';
 
 // Create central Log object:
 $log = new Log\Filesystem();
@@ -55,7 +56,7 @@ if ($auth->exec() === false) {
 // Create cache object:
 $cache = ($config->cache_use)
 	? new Cache\Filesystem($config->cache_dir)
-	: new Cache\Null();
+	: new Cache\NullCache();
 
 // Clean stale cache files every once in a blue moon:
 // Time-based throttling to prevent too-frequent rechecking;
@@ -77,8 +78,9 @@ $server = new DAV\Server($rootDir);
 $server->setBaseUri($baseuri);
 
 // Also make sure there is a 'data' directory, writable by the server.
-// This directory is used to store information about locks:
-$lockBackend = new DAV\Locks\Backend\File('data/locks.dat');
+// This directory is used to store information about locks. The path is
+// absolute, because the working directory depends on the PHP SAPI in use:
+$lockBackend = new DAV\Locks\Backend\File(__DIR__ . '/data/locks.dat');
 $lockPlugin = new DAV\Locks\Plugin($lockBackend);
 $server->addPlugin($lockPlugin);
 

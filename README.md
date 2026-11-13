@@ -1,6 +1,6 @@
-**Note:** There are now many enterprise-grade
-solutions available, like [Nextcloud](https://nextcloud.com/). Therefor
-this repository is no longer maintained.
+**Note:** The upstream project is no longer maintained. This branch ports it to
+current platforms: PHP 8.2+ and SabreDAV 4.7 (see the `ChangeLog`). It requires the
+`openssl` PHP extension (the abandoned `mcrypt` is no longer used) and, optionally, `ldap`.
 
 ![SambaDAV](https://raw.github.com/1afa/sambadav/master/img/png/logo.png)
 
@@ -47,9 +47,8 @@ setting up a VPN.
 In the background, SambaDAV executes SMB commands on the user's behalf through
 `smbclient`, a commandline utility distributed with
 [Samba](http://www.samba.org), to issue requests to SMB/CIFS (i.e. Windows)
-fileservers. Currently, only Samba 3.x is supported; the version of `smbclient`
-bundled with Samba 4.x was completely rewritten and supports a different range
-of options.
+fileservers. The `smbclient` options and output format used here have been exercised against
+a mock `smbclient`, but not yet against a live Samba server (see the `ChangeLog`).
 
 When the user requests a file, SambaDAV will spawn an `smbclient` child process
 to retrieve the file and pass it through to the user as a bytestream. User
@@ -294,11 +293,11 @@ port 443 SSL server, put something along the following lines:
 <Directory /var/www/htdocs/webfolders>
 
     # As our "cloud solution", this should be available from anywhere:
-    Order allow,deny
-    Allow from all
+    # Apache 2.4 syntax (`Order`/`Allow` no longer exist):
+    Require all granted
 
     AddDefaultCharset utf-8
-    AddType application/x-httpd-php php php5
+    AddType application/x-httpd-php php
     DirectoryIndex server.php
 
     # Reroute all requests to subdirectories, or things that are not

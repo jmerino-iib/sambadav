@@ -44,9 +44,12 @@ class Filesystem extends \SambaDAV\Cache
 		if ($umask !== null) {
 			$this->umask = $umask;
 		}
-		// Make directory if not exists:
+		// Make directory if not exists; another request may create it
+		// between our check and our mkdir, which is not an error:
 		if (is_dir($this->basedir) === false) {
-			mkdir($this->basedir, 0700, false);
+			if (@mkdir($this->basedir, 0700, false) === false) {
+				clearstatcache(true, $this->basedir);
+			}
 		}
 		$this->semaphore = "{$this->basedir}/last_cleaned";
 	}
@@ -54,14 +57,19 @@ class Filesystem extends \SambaDAV\Cache
 	public function
 	write ($key, $data, $timeout)
 	{
-		umask($this->umask);
+		// Only apply our restrictive umask while creating the cache file;
+		// umask is process-wide, so restore it for the rest of the request:
+		$oldumask = umask($this->umask);
 
 		// There is a slight race condition here with the cache cleanup
 		// processes: if we fopen() a stale file, the cleanup process could
 		// unlink it before we manage to modify its mtime by calling
 		// ftruncate(). The worst that can happen is a potential cache miss on
 		// the next lookup. That's not worth serializing cache access for.
-		if (($fd = fopen($this->filename($key), 'a')) === false) {
+		$fd = @fopen($this->filename($key), 'a');
+		umask($oldumask);
+
+		if ($fd === false) {
 			return false;
 		}
 		if (flock($fd, LOCK_EX) === false) {
@@ -122,9 +130,10 @@ class Filesystem extends \SambaDAV\Cache
 			if ($entry === '.' || $entry === '..' || $entry === 'last_cleaned') {
 				continue;
 			}
+			// The file may have been removed by a concurrent request:
 			$file = "{$this->basedir}/$entry";
-			if ((time() - filemtime($file)) > self::MAX_AGE) {
-				unlink($file);
+			if (($mtime = @filemtime($file)) !== false && (time() - $mtime) > self::MAX_AGE) {
+				@unlink($file);
 			}
 		}
 		closedir($dir);
